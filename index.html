@@ -1,0 +1,279 @@
+import React, { useState, useCallback } from 'react';
+import { 
+  Network, 
+  Search, 
+  Layers, 
+  Cpu, 
+  AlertTriangle, 
+  Microscope, 
+  CheckCircle2,
+  ChevronRight,
+  Info,
+  X,
+  Database,
+  Terminal,
+  Activity
+} from 'lucide-react';
+
+const DIAGNOSIS_DATA = {
+  id: 'root',
+  name: 'IC 失效診斷 (Failure Analysis)',
+  type: 'Root',
+  children: [
+    {
+      id: 'electrical',
+      name: '電性異常 (Electrical)',
+      color: '#ef4444',
+      children: [
+        {
+          id: 'short',
+          name: '短路/高漏電 (Short/Leakage)',
+          tool: 'Curve Tracer / EMMI',
+          desc: '透過 I-V 特性確認漏電級別，並利用光發射定位定位 Hotspot。',
+          status: 'High Priority'
+        },
+        {
+          id: 'open',
+          name: '開路/接觸不良 (Open/Contact)',
+          tool: 'TDR / X-Ray',
+          desc: '利用時域反射儀確認打線或凸點(Bump)是否有斷路。',
+          status: 'Critical'
+        },
+        {
+          id: 'eos_esd',
+          name: 'EOS/ESD 破壞',
+          tool: 'Optical Microscope',
+          desc: '觀察墊片(Pad)或電路是否有物理性燒毀痕跡。',
+          status: 'Common'
+        }
+      ]
+    },
+    {
+      id: 'functional',
+      name: '功能異常 (Functional)',
+      color: '#3b82f6',
+      children: [
+        {
+          id: 'logic_fail',
+          name: '邏輯錯誤 (Logic Fail)',
+          tool: 'ATE Tester / Scan Chain',
+          desc: '執行 Pattern 測試，鎖定失效的 Flip-flop 區塊。',
+          status: 'Complex'
+        },
+        {
+          id: 'timing',
+          name: '時序偏差 (Timing Issues)',
+          tool: 'Shmoo Plot / LVP',
+          desc: '分析電壓與頻率邊界，使用雷射電壓探棒觀察內部波形。',
+          status: 'Expert Only'
+        }
+      ]
+    },
+    {
+      id: 'physical',
+      name: '物理結構異常 (Physical)',
+      color: '#10b981',
+      children: [
+        {
+          id: 'delamination',
+          name: '分層/裂痕 (Delamination)',
+          tool: 'SAT (Scanning Acoustic)',
+          desc: '使用超音波掃描確認封裝內部膠材是否脫離。',
+          status: 'Reliability'
+        },
+        {
+          id: 'impurity',
+          name: '雜質污染 (Contamination)',
+          tool: 'EDX / AES',
+          desc: '進行化學成分分析，確認是否有離子污染導致腐蝕。',
+          status: 'Deep FA'
+        }
+      ]
+    }
+  ]
+};
+
+const NodeCard = ({ node, level = 0, onSelect, activeId }) => {
+  const isActive = activeId === node.id;
+  
+  return (
+    <div className="flex flex-col items-center">
+      <div 
+        onClick={() => onSelect(node)}
+        className={`
+          relative group cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300
+          ${isActive ? 'bg-slate-800 border-white scale-105 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'bg-slate-900 border-slate-700 hover:border-slate-500'}
+          min-w-[180px] max-w-[220px]
+        `}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: node.color || '#94a3b8' }} />
+          {node.status && <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">{node.status}</span>}
+        </div>
+        <h4 className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{node.name}</h4>
+        {node.tool && <p className="text-[10px] text-slate-500 mt-1 font-mono">{node.tool}</p>}
+        
+        {isActive && (
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-white rounded-full animate-pulse" />
+        )}
+      </div>
+
+      {node.children && (
+        <div className="flex gap-4 mt-12 relative">
+          {/* 連接線 */}
+          <div className="absolute -top-12 left-1/2 w-px h-12 bg-slate-700" />
+          {node.children.map((child, idx) => (
+            <div key={child.id} className="relative">
+              {/* 水平橫線 */}
+              {idx === 0 && node.children.length > 1 && (
+                <div className="absolute top-0 left-1/2 right-0 h-px bg-slate-700" />
+              )}
+              {idx === node.children.length - 1 && node.children.length > 1 && (
+                <div className="absolute top-0 left-0 right-1/2 h-px bg-slate-700" />
+              )}
+              {idx > 0 && idx < node.children.length - 1 && (
+                <div className="absolute top-0 left-0 right-0 h-px bg-slate-700" />
+              )}
+              <NodeCard node={child} level={level + 1} onSelect={onSelect} activeId={activeId} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default function App() {
+  const [selectedNode, setSelectedNode] = useState(null);
+
+  return (
+    <div className="min-h-screen bg-[#020617] text-slate-200 p-6 lg:p-12 font-sans overflow-x-auto">
+      
+      {/* Header */}
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
+        <div className="flex items-center gap-6">
+          <div className="p-4 bg-indigo-600 rounded-3xl shadow-xl shadow-indigo-500/20">
+            <Network className="text-white w-10 h-10" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-black tracking-tight text-white italic uppercase">FA <span className="text-indigo-400">Diagnosis Tree</span></h1>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">IC 失效診斷決策心智圖</span>
+              <div className="h-px w-20 bg-slate-800" />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-emerald-500">系統在線</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex gap-4 bg-slate-900/50 p-2 rounded-2xl border border-slate-800">
+           <div className="px-4 py-2 text-center">
+             <p className="text-[10px] font-black text-slate-500 uppercase">分析準確率</p>
+             <p className="text-xl font-black text-white">94%</p>
+           </div>
+           <div className="w-px h-10 bg-slate-800 self-center" />
+           <div className="px-4 py-2 text-center">
+             <p className="text-[10px] font-black text-slate-500 uppercase">平均收斂時間</p>
+             <p className="text-xl font-black text-white">4.2d</p>
+           </div>
+        </div>
+      </div>
+
+      {/* Main Mind Map Canvas */}
+      <div className="relative min-w-[1200px] py-20 flex justify-center">
+        <NodeCard 
+          node={DIAGNOSIS_DATA} 
+          onSelect={setSelectedNode} 
+          activeId={selectedNode?.id} 
+        />
+      </div>
+
+      {/* Info Sidebar / Modal Overlay */}
+      {selectedNode && (
+        <div className="fixed top-0 right-0 w-[400px] h-full bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 shadow-2xl z-50 p-8 transform transition-transform duration-500 animate-in slide-in-from-right">
+          <button 
+            onClick={() => setSelectedNode(null)}
+            className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-800 text-slate-500 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          <div className="mt-10 space-y-8">
+            <div className="space-y-2">
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest">
+                Node Details
+              </div>
+              <h2 className="text-3xl font-black text-white italic">{selectedNode.name}</h2>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div className="p-6 bg-slate-800/50 rounded-[2rem] border border-slate-700">
+                <div className="flex items-center gap-3 mb-4 text-indigo-400">
+                  <Microscope className="w-5 h-5" />
+                  <span className="text-xs font-black uppercase tracking-widest">建議分析儀器</span>
+                </div>
+                <p className="text-lg font-bold text-slate-200">{selectedNode.tool || '請參考子節點'}</p>
+              </div>
+
+              <div className="p-6 bg-slate-800/50 rounded-[2rem] border border-slate-700">
+                <div className="flex items-center gap-3 mb-4 text-emerald-400">
+                  <Info className="w-5 h-5" />
+                  <span className="text-xs font-black uppercase tracking-widest">診斷邏輯說明</span>
+                </div>
+                <p className="text-sm leading-relaxed text-slate-400">
+                  {selectedNode.desc || '這是診斷流程的頂層分類，請點擊下方具體分支來獲取詳細的分析方法與 Root Cause 判定標準。'}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-6">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">下一步行動建議</h4>
+              <div className="space-y-2">
+                <button className="w-full flex items-center justify-between p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl transition-all group">
+                  <span className="text-xs font-bold text-slate-300">產出 FA 實驗委託單</span>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition-transform" />
+                </button>
+                <button className="w-full flex items-center justify-between p-4 bg-slate-800 hover:bg-slate-700 rounded-2xl transition-all group">
+                  <span className="text-xs font-bold text-slate-300">比對 Knowledge Base 歷史案件</span>
+                  <Database className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-8 left-8 right-8">
+            <div className="p-4 bg-indigo-600 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-indigo-600/20 cursor-pointer hover:bg-indigo-500 transition-colors">
+              <Terminal className="w-4 h-4 text-white" />
+              <span className="text-xs font-black text-white uppercase italic">啟動 AI 輔助除錯</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legend & Background Decoration */}
+      <div className="fixed bottom-8 left-8 flex items-center gap-6 bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#ef4444]" />
+          <span className="text-[10px] font-bold text-slate-500">電性</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
+          <span className="text-[10px] font-bold text-slate-500">功能</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+          <span className="text-[10px] font-bold text-slate-500">物理</span>
+        </div>
+      </div>
+
+      <style>{`
+        ::-webkit-scrollbar { height: 8px; width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+      `}</style>
+    </div>
+  );
+}
